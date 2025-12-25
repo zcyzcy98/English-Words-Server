@@ -1,0 +1,79 @@
+// Prisma Schema 文件
+// 文档: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 单词模型
+model Word {
+  id             Int      @id @default(autoincrement())
+  word           String   // 单词
+  phonetic       String?  // 音标（可选）
+  partOfSpeech   String[]  // 词性
+  meaning        String   // 中文意思
+  category       String[]  // 分类（可选）
+  example        String?  // 例句（可选）
+  notes          String?  // 笔记（可选）
+  createdAt      DateTime @default(now()) // 创建时间
+
+  // 复习相关字段
+  nextReviewDate DateTime  @default(now()) // 下次复习日期（默认今天）
+  reviewCount    Int       @default(0)     // 复习次数
+  familiarity    Int       @default(0)     // 熟悉度 0-7（用于艾宾浩斯曲线）
+  lastReviewedAt DateTime?                 // 最后复习时间
+
+  // 关联复习历史
+  reviewHistory  ReviewHistory[]
+
+  @@map("words")
+}
+
+// 复习历史记录
+model ReviewHistory {
+  id          Int      @id @default(autoincrement())
+  wordId      Int      // 关联的单词ID
+  word        Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  remembered  Boolean  // 是否记住
+  reviewedAt  DateTime @default(now()) // 复习时间
+
+  @@map("review_history")
+}
+
+// 精美英文短句模型
+model Quote {
+  id          Int      @id @default(autoincrement())
+  content     String   // 英文短句
+  author      String   // 作者
+  translation String   // 中文翻译
+  imageUrl    String   // 图片链接
+  createdAt   DateTime @default(now()) // 创建时间
+
+  @@map("quotes")
+}
+
+// 签到记录
+model CheckIn {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique  // 签到日期（唯一，每天只能签一次）
+  createdAt DateTime @default(now())
+
+  @@map("check_ins")
+}
+
+// 签到统计
+model CheckInStats {
+  id              Int      @id @default(autoincrement())
+  totalDays       Int      @default(0)     // 累计签到天数
+  consecutiveDays Int      @default(0)     // 连续签到天数
+  lastCheckIn     DateTime?                // 最后签到日期
+  badges          String[] @default([])    // 获得的徽章
+  updatedAt       DateTime @updatedAt
+
+  @@map("check_in_stats")
+}
