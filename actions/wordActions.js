@@ -104,12 +104,43 @@ router.delete("/deleteWord/:id", async (req, res) => {
   }
 });
 
+//============ 批量删除单词 ============
+// BATCH-DELETE /api/words/batchDeleteWord/
+router.delete("/batchDeleteWord/", async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        error: "请提供要删除的单词 ID 数组",
+      });
+    }
+
+    await prisma.word.deleteMany({
+      where: {
+        id: {
+          in: ids.map((id) => parseInt(id)),
+        },
+      },
+    });
+
+    res.json({ message: "批量删除成功" });
+  } catch (error) {
+    console.error("批量删除单词失败:", error);
+    res.status(500).json({
+      error: "服务器错误",
+      detail: error.message,
+    });
+  }
+});
+
 // ============ 更新单词 ============
 // PUT /api/words/updateWord/:id
 router.put("/updateWord/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { word, meaning, example, phonetic, notes, partOfSpeech, category } = req.body;
+    const { word, meaning, example, phonetic, notes, partOfSpeech, category } =
+      req.body;
 
     if (!word || !meaning) {
       return res.status(400).json({
@@ -127,7 +158,7 @@ router.put("/updateWord/:id", async (req, res) => {
       data: updatedWord,
     });
   } catch (error) {
-    console.error("更新单词失败:", error);  
+    console.error("更新单词失败:", error);
     res.status(500).json({
       error: "服务器错误",
       detail: error.message,
