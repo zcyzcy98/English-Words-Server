@@ -10,6 +10,7 @@ import cors from "cors";
 import wordActions from "./actions/wordActions.js";
 import quoteActions from "./actions/quoteActions.js";
 import checkInActions from "./actions/checkInActions.js";
+import aiActions from "./actions/aiActions.js";
 
 // 创建 Express 应用
 const app = express();
@@ -29,6 +30,7 @@ app.use(
 app.use("/api/words", wordActions);
 app.use("/api/quotes", quoteActions);
 app.use("/api/checkIn", checkInActions);
+app.use("/api/ai", aiActions);
 
 // 启动服务器
 app.listen(PORT, () => {
