@@ -14,7 +14,7 @@ import aiActions from "./actions/aiActions.js";
 
 // 创建 Express 应用
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // 中间件
 app.use(cors());
@@ -23,7 +23,7 @@ app.use(
   "/api/uploadthing",
   createRouteHandler({
     router: uploadRouter,
-  })
+  }),
 );
 
 // 注册路由
@@ -33,6 +33,6 @@ app.use("/api/checkIn", checkInActions);
 app.use("/api/ai", aiActions);
 
 // 启动服务器
-app.listen(PORT, () => {
-  console.log(`服务器运行在 http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT}`);
 });
