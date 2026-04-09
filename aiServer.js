@@ -20,61 +20,87 @@ const llm = new ChatOllama({
   timeout: 1000 * 60,
 });
 
-// 2. 设计 Prompt：必须包含一个 MessagesPlaceholder 来承接 Redis 里的历史记录
-const prompt = ChatPromptTemplate.fromMessages([
+/**
+ * 2. Prompt（带记忆）
+ */
+const promptWithHistory = ChatPromptTemplate.fromMessages([
   ["system", "你是一个拥有长期记忆的智能助手。"],
-  new MessagesPlaceholder("chat_history"), // 这里的名字要和后面 historyMessagesKey 对应
+  new MessagesPlaceholder("chat_history"),
   ["human", "{input}"],
 ]);
 
-const chain = prompt.pipe(llm);
+const promptWithoutHistory = ChatPromptTemplate.fromMessages([
+  ["system", "你是一个智能助手。"],
+  ["human", "{input}"],
+]);
 
-// 3. 封装带 Redis 的执行链
-const chainWithHistory = new RunnableWithMessageHistory({
-  runnable: chain,
-  // 关键函数：LangChain 每次调用都会通过 sessionId 去 Redis 查记录
-  getMessageHistory: (sessionId) =>
-    new RedisChatMessageHistory({
-      sessionId: sessionId,
-      sessionTTL: 3600, // 自动设置过期时间（秒），1小时后自动清理
-      config: {
-        url: "redis://localhost:6379", // 你的 Redis 地址
-      },
-    }),
-  inputMessagesKey: "input",
-  historyMessagesKey: "chat_history", // 对应上面 Placeholder 的变量名
-});
+/**
+ * 3. Redis 历史记录
+ */
+function getRedisHistory(sessionId) {
+  return new RedisChatMessageHistory({
+    sessionId,
+    sessionTTL: 3600,
+    config: {
+      url: "redis://localhost:6379",
+    },
+  });
+}
 
-export { chainWithHistory };
-
-// 👉 通用问答
-// export async function chat(message) {
-//   const res = await llm.invoke(message);
-
-//   console.log("LLM RESULT:", res);
-
-//   return res.content;
-// }
-
-export async function chat(message, sessionId) {
+/**
+ * 4. 核心调度器（统一入口）
+ */
+export async function executeChat({ message, sessionId, schema, prompt }) {
   try {
-    // 调用带记忆的链，而不是直接调用 llm
-    const res = await chainWithHistory.invoke(
-      { input: message }, 
-      { configurable: { sessionId: sessionId } }
-    );
+    // ✅ 优先用外部 prompt
+    const finalPrompt = prompt
+      ? prompt
+      : sessionId
+        ? promptWithHistory
+        : promptWithoutHistory;
 
-    console.log(`[Session: ${sessionId}] LLM RESULT:`, res.content);
+    // ✅ 先处理模型
+    let model = llm;
 
-    return res.content;
-  } catch (error) {
-    console.error("对话失败:", error);
-    throw error;
+    if (schema) {
+      model = model.withStructuredOutput(schema);
+    }
+
+    const runner = finalPrompt.pipe(model);
+
+    // ✅ 输入
+    const input = { input: message };
+
+    // ✅ 带记忆
+    if (sessionId) {
+      const chainWithHistory = new RunnableWithMessageHistory({
+        runnable: runner,
+        getMessageHistory: getRedisHistory,
+        inputMessagesKey: "input",
+        historyMessagesKey: "chat_history",
+      });
+
+      const res = await chainWithHistory.invoke(input, {
+        configurable: { sessionId },
+      });
+
+      return normalizeOutput(res, schema);
+    }
+
+    // ✅ 无记忆
+    const res = await runner.invoke(input);
+
+    return normalizeOutput(res, schema);
+  } catch (err) {
+    console.error("❌ executeChat error:", err);
+    throw err;
   }
 }
 
-// ✅ 流式调用（重点）
-export async function chatStream(message) {
-  const stream = await llm.stream(message);
-  return stream;
+/**
+ * 5. 输出统一处理
+ */
+function normalizeOutput(res, schema) {
+  if (schema) return res;
+  return res?.content ?? res;
 }
