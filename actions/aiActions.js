@@ -56,4 +56,20 @@ router.get("/generate/quote", async (req, res) => {
   res.json(quote);
 });
 
+// ai生成例句
+router.get("/generate/example", async (req, res) => {
+  const { word, meaning } = req.query;
+  if (!word) {
+    return res.status(400).json({
+      success: false,
+      error: "word is required",
+    });
+  }
+  const prompt = `请为英文单词 "${word}" (中文释义: ${meaning || "未提供"}) 生成一个地道的英文例句。直接返回例句即可，不要有其他解释。`;
+  const example = await executeChat({ message: prompt });
+  res.json({
+    example,
+  });
+});
+
 export default router;
