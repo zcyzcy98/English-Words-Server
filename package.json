@@ -18,7 +18,8 @@
     "express": "^4.18.2",
     "ollama": "^0.6.3",
     "redis": "^5.11.0",
-    "uploadthing": "^7.7.4"
+    "uploadthing": "^7.7.4",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",
